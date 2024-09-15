@@ -1,0 +1,134 @@
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import warnings
+import matplotlib.pyplot as plt
+
+warnings.filterwarnings("ignore")
+
+#loading dataset
+
+df=pd.read_csv('C:\\Users\\Reema\\Downloads\\archive\\DailyDelhiClimateTrain.csv')
+df.head()
+
+#summarizing the data set
+df.describe()
+
+#data preprocessing
+
+print("number of missing values in our temperature column: ",df.meantemp.isnull().sum())
+
+#data visualization
+sns.pairplot(df)
+
+#plot the recorded temperature over time
+
+plt.figure(figsize=(18,8))
+plt.plot(df.date,df['meantemp'])
+plt.xlabel("Date",fontsize=14)
+plt.ylabel("Temperature", fontsize=14)
+plt.xticks(np.arange(0, len(df.date)+1,45), rotation=45,fontsize=14)
+plt.yticks(fontsize=14)
+plt.title("Recorded Temperature", fontsize=16)
+plt.show()
+
+#plot the temperature over months for each year ,comparing the recorded temperatures
+
+plt.figure(figsize=(18,8))
+dates=pd.to_datetime(df.date.iloc[:-1])
+print("Temperature Years on Record: ", *dates.dt.year.unique())
+for i in dates.dt.year.unique():
+    plt.plot(df['meantemp'].iloc[:-1][dates.dt.year==i].values, label=i)
+
+plt.xlabel("Month", fontsize=14)
+plt.ylabel("Temperature", fontsize=14)
+plt.xticks(np.arange(0, 365,32), labels=dates.dt.month_name().unique(),rotation=45,fontsize=14)
+plt.yticks(fontsize=14)
+plt.title("Recorded Temperature(Years Comparison)", fontsize=16)
+plt.legend(fontsize=12)
+plt.show()
+
+#time series decomposition using multiplicative model
+
+from statsmodels.tsa.seasonal import seasonal_decompose
+decomp_mul=seasonal_decompose(df['meantemp'],model='multiplicative',extrapolate_trend='freq',period=365)
+decomp_mul.plot()
+plt.show()
+
+#additive decomposition
+
+decomp_add=seasonal_decompose(df['meantemp'],model='additive',extrapolate_trend='freq',period=365)
+decomp_add.plot()
+plt.show()
+
+#testing for stationarity and trend stationarity
+import warnings
+warnings.filterwarnings("ignore")
+
+
+from statsmodels.tsa.stattools import adfuller, kpss
+
+# Augmented Dickey Fuller (ADF) Test
+result = adfuller(df['meantemp'].values, autolag='AIC')
+print('ADF Statistic:', result[0], 'p-value:', result[1])
+
+# Kwiatkowski-Phillips-Schmidt-Shin (KPSS) Test
+result = kpss(df['meantemp'].values, nlags="auto", regression='c')
+print('KPSS Statistic: ', result[0], 'p-value: ',result[1])
+
+#testing for time series seasonality
+
+from pandas.plotting import autocorrelation_plot
+
+plt.figure(figsize=(18, 8))
+autocorrelation_plot(df['meantemp'])
+plt.title('Autocorrelation Plot', fontsize=16)
+plt.xlabel("Lag", fontsize=14)
+plt.ylabel("Autocorrelation", fontsize=14)
+plt.show()
+
+#time series analysis using ARIMA Model
+import warnings
+from sklearn.metrics import mean_squared_error
+from statsmodels.tsa.arima.model import ARIMA
+warnings.filterwarnings("ignore")
+train = df['meantemp'][:int(np.floor((len(df)/100)*70))]
+test = df['meantemp'][int(np.floor((len(df)/100)*70)):]
+
+model = ARIMA(train, order=(3,1,2))
+fitted = model.fit()
+print(fitted.summary())
+
+fc = fitted.get_forecast(len(df['meantemp'][int(np.floor((len(df)/100)*70)):]))
+conf = fc.conf_int(alpha=0.05) # 95% confidence
+
+fc_series = pd.Series(fc.predicted_mean, index=test.index)
+lower_series = pd.Series(conf.iloc[:, 0], index=test.index)
+upper_series = pd.Series(conf.iloc[:, 1], index=test.index)
+arima_predictions = fitted.forecast(steps=len(test))
+# Plot
+plt.figure(figsize=(12,5), dpi=200)
+plt.plot(train, label='training')
+plt.plot(test, label='actual')
+plt.plot(fc_series, label='forecast')
+plt.fill_between(lower_series.index, lower_series, upper_series,
+                 color='k', alpha=.15)
+plt.title('Forecast vs Actuals')
+plt.legend(loc='upper left', fontsize=8)
+plt.show()
+
+mse_arima = mean_squared_error(test, arima_predictions)
+print(f'Mean Squared Error (ARIMA): {mse_arima}')
+rmse_arima = np.sqrt(mse_arima)
+print(f'Root Mean Squared Error (ARIMA): {rmse_arima}')
+
+from sklearn.metrics import mean_absolute_error
+
+# Assuming test and predictions are your actual and predicted values
+mae = mean_absolute_error(test, arima_predictions)
+print("Mean Absolute Error (MAE):",mae)
+
+features=df.columns
+print("features in the dataset")
+print(features)
+
