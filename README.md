@@ -1,1 +1,1 @@
-
+Conducted time series analysis on climate change data to identify long-term trends and seasonal variations, utilizing statistical methods to forecast future climate patterns. Analysed temperature and humidity records to assess the impact of global warming over time.
